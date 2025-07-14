@@ -19694,7 +19694,7 @@
     "flakey": [],
     "runtimeError": false
   },
-  "test/production/standalone-mode/required-server-files/required-server-files-ppr.test.ts": {
+  "test/production/standalone-mode/required-server-files/required-server-files-cache-components.test.ts": {
     "passed": [
       "required server files app router middleware rewrite should work with a dynamic path with Next-Resume",
       "required server files app router should handle RSC requests",

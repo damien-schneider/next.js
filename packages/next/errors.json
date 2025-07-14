@@ -728,5 +728,10 @@
   "727": "Route %s couldn't be rendered statically because it used IO that was not cached. See more info here: https://nextjs.org/docs/messages/cache-components",
   "728": "CacheSignal cannot be used in the edge runtime, because `cacheComponents` does not support it.",
   "729": "\\`experimental.ppr\\` can not be \\`%s\\` when \\`experimental.cacheComponents\\` is \\`true\\`. PPR is implicitly enabled when Cache Components is enabled.",
-  "730": "Dynamic imports should not be instrumented in the edge runtime, because `cacheComponents` doesn't support it"
+  "730": "Dynamic imports should not be instrumented in the edge runtime, because `cacheComponents` doesn't support it",
+  "731": "Invariant: page postponed without cache components being enabled",
+  "732": "createPrerenderPathname cannot be called with the prerender-legacy work unit type.",
+  "733": "\\`experimental.ppr\\` cannot be set to \"incremental\" as cache components does not support it. Please remove it from %s.",
+  "734": "Invariant: cache components cannot be enabled in export mode",
+  "735": "\\`experimental.ppr\\` and \\`experimental.cacheComponents\\` cannot be set to different values. Please remove \\`experimental.ppr\\` from %s."
 }

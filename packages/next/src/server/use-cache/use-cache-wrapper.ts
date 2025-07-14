@@ -174,7 +174,6 @@ function generateCacheEntryWithCacheContext(
         break
       case 'prerender':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'unstable-cache':
         break
@@ -228,7 +227,6 @@ function propagateCacheLifeAndTags(
     switch (workUnitStore.type) {
       case 'cache':
       case 'prerender':
-      case 'prerender-ppr':
       case 'prerender-legacy':
         // Propagate tags and revalidate upwards
         const outerTags = workUnitStore.tags ?? (workUnitStore.tags = [])
@@ -404,7 +402,6 @@ async function generateCacheEntryImpl(
                     })
                     break
                   case 'prerender-client':
-                  case 'prerender-ppr':
                   case 'prerender-legacy':
                   case 'request':
                   case 'cache':
@@ -534,7 +531,6 @@ async function generateCacheEntryImpl(
       }
       break
     case 'prerender-client':
-    case 'prerender-ppr':
     case 'prerender-legacy':
     case 'request':
     case 'cache':
@@ -830,7 +826,6 @@ export function cache(
           }
         // fallthrough
         case 'prerender-client':
-        case 'prerender-ppr':
         case 'prerender-legacy':
         case 'request':
         case 'cache':
@@ -881,8 +876,8 @@ export function cache(
                 // revalidate: 0 or if the expire time is under 5 minutes, then
                 // we consider this cache entry dynamic as it's not worth
                 // generating static pages for such data. It's better to leave a
-                // PPR hole that can be filled in dynamically with a potentially
-                // cached entry.
+                // Cache Components hole that can be filled in dynamically with
+                // a potentially cached entry.
                 if (cacheSignal) {
                   cacheSignal.endRead()
                 }
@@ -891,7 +886,6 @@ export function cache(
                   'dynamic "use cache"'
                 )
               case 'prerender-client':
-              case 'prerender-ppr':
               case 'prerender-legacy':
               case 'request':
               case 'cache':
@@ -942,7 +936,6 @@ export function cache(
                 }
                 break
               case 'prerender-client':
-              case 'prerender-ppr':
               case 'prerender-legacy':
               case 'request':
               case 'cache':
@@ -1035,7 +1028,6 @@ export function cache(
                 'dynamic "use cache"'
               )
             case 'prerender-client':
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'request':
             case 'cache':
@@ -1270,7 +1262,6 @@ function shouldForceRevalidate(
         return workUnitStore.forceRevalidate
       case 'prerender':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'unstable-cache':
         break
@@ -1312,7 +1303,6 @@ function shouldDiscardCacheEntry(
       case 'prerender':
         return false
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'request':
       case 'cache':

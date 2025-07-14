@@ -372,7 +372,6 @@ export function createPatchedFetcher(
             case 'prerender':
             // TODO: Stop accumulating tags in client prerender. (fallthrough)
             case 'prerender-client':
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'cache':
               revalidateStore = workUnitStore
@@ -411,7 +410,6 @@ export function createPatchedFetcher(
               break
             case 'prerender':
             case 'prerender-client':
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'request':
             case 'cache':
@@ -545,7 +543,7 @@ export function createPatchedFetcher(
           }
         }
 
-        // If we have no cache config, and we're in Dynamic I/O prerendering,
+        // If we have no cache config, and we're in Cache Components prerendering,
         // it'll be a dynamic call. We don't have to issue that dynamic call.
         if (hasNoExplicitCacheConfig && workUnitStore !== undefined) {
           switch (workUnitStore.type) {
@@ -563,7 +561,6 @@ export function createPatchedFetcher(
                 workUnitStore.renderSignal,
                 'fetch()'
               )
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'request':
             case 'cache':
@@ -673,7 +670,6 @@ export function createPatchedFetcher(
                     workUnitStore.renderSignal,
                     'fetch()'
                   )
-                case 'prerender-ppr':
                 case 'prerender-legacy':
                 case 'request':
                 case 'cache':
@@ -716,7 +712,6 @@ export function createPatchedFetcher(
               break
             case 'prerender':
             case 'prerender-client':
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'unstable-cache':
               break
@@ -843,7 +838,6 @@ export function createPatchedFetcher(
                       normalizedRevalidate,
                       handleUnlock
                     )
-                  case 'prerender-ppr':
                   case 'prerender-legacy':
                   case 'request':
                   case 'cache':
@@ -913,7 +907,6 @@ export function createPatchedFetcher(
                   // here.
                   await waitAtLeastOneReactRenderTask()
                   break
-                case 'prerender-ppr':
                 case 'prerender-legacy':
                 case 'request':
                 case 'cache':
@@ -1014,7 +1007,6 @@ export function createPatchedFetcher(
                     workUnitStore.renderSignal,
                     'fetch()'
                   )
-                case 'prerender-ppr':
                 case 'prerender-legacy':
                 case 'request':
                 case 'cache':
@@ -1052,7 +1044,6 @@ export function createPatchedFetcher(
                   case 'cache':
                   case 'unstable-cache':
                   case 'prerender-legacy':
-                  case 'prerender-ppr':
                     break
                   default:
                     workUnitStore satisfies never

@@ -181,10 +181,6 @@ import { traceMemoryUsage } from '../lib/memory/trace'
 import { generateEncryptionKeyBase64 } from '../server/app-render/encryption-utils-server'
 import type { DeepReadonly } from '../shared/lib/deep-readonly'
 import uploadTrace from '../trace/upload-trace'
-import {
-  checkIsAppPPREnabled,
-  checkIsRoutePPREnabled,
-} from '../server/lib/experimental/ppr'
 import { FallbackMode, fallbackModeToFallbackField } from '../lib/fallback'
 import { RenderingMode } from './rendering-mode'
 import { InvariantError } from '../shared/lib/invariant-error'
@@ -476,12 +472,12 @@ export type RoutesManifest = {
    */
   ppr?: {
     /**
-     * The chained response for the PPR resume.
+     * The chained response for the cache components resume.
      */
     chain: {
       /**
-       * The headers that will indicate to Next.js that the request is for a PPR
-       * resume.
+       * The headers that will indicate to Next.js that the request is for a
+       * cache components resume.
        */
       headers: Record<string, string>
     }
@@ -1355,13 +1351,9 @@ export default async function build(
         config.basePath ? `${config.basePath}${p}` : p
       )
 
-      const isAppCacheComponentsEnabled = Boolean(
-        config.experimental.cacheComponents
-      )
-      const isAuthInterruptsEnabled = Boolean(
-        config.experimental.authInterrupts
-      )
-      const isAppPPREnabled = checkIsAppPPREnabled(config.experimental.ppr)
+      const cacheComponents = config.experimental.cacheComponents === true
+      const isAuthInterruptsEnabled =
+        config.experimental.authInterrupts === true
 
       const routesManifestPath = path.join(distDir, ROUTES_MANIFEST)
       const dynamicRoutes: Array<DynamicManifestRoute> = []
@@ -1431,7 +1423,7 @@ export default async function build(
               queryHeader: NEXT_REWRITTEN_QUERY_HEADER,
             },
             skipMiddlewareUrlNormalize: config.skipMiddlewareUrlNormalize,
-            ppr: isAppPPREnabled
+            ppr: cacheComponents
               ? {
                   chain: {
                     headers: {
@@ -1792,13 +1784,12 @@ export default async function build(
               distDir,
               configFileName,
               runtimeEnvConfig,
-              cacheComponents: isAppCacheComponentsEnabled,
+              cacheComponents,
               authInterrupts: isAuthInterruptsEnabled,
               httpAgentOptions: config.httpAgentOptions,
               locales: config.i18n?.locales,
               defaultLocale: config.i18n?.defaultLocale,
               nextConfigOutput: config.output,
-              pprConfig: config.experimental.ppr,
               cacheLifeProfiles: config.experimental.cacheLife,
               buildId,
               sriEnabled,
@@ -1902,7 +1893,6 @@ export default async function build(
                   computedManifestData
                 )
 
-                let isRoutePPREnabled = false
                 let isSSG = false
                 let isStatic = false
                 let isServerComponent = false
@@ -2031,7 +2021,7 @@ export default async function build(
                             pageRuntime,
                             edgeInfo,
                             pageType,
-                            cacheComponents: isAppCacheComponentsEnabled,
+                            cacheComponents,
                             authInterrupts: isAuthInterruptsEnabled,
                             cacheHandler: config.cacheHandler,
                             cacheHandlers: config.experimental.cacheHandlers,
@@ -2040,7 +2030,6 @@ export default async function build(
                               : config.experimental.isrFlushToDisk,
                             maxMemoryCacheSize: config.cacheMaxMemorySize,
                             nextConfigOutput: config.output,
-                            pprConfig: config.experimental.ppr,
                             cacheLifeProfiles: config.experimental.cacheLife,
                             buildId,
                             sriEnabled,
@@ -2061,16 +2050,10 @@ export default async function build(
                         } else {
                           const isDynamic = isDynamicRoute(page)
 
-                          if (
-                            typeof workerResult.isRoutePPREnabled === 'boolean'
-                          ) {
-                            isRoutePPREnabled = workerResult.isRoutePPREnabled
-                          }
-
                           // If this route can be partially pre-rendered, then
                           // mark it as such and mark that it can be
                           // generated server-side.
-                          if (workerResult.isRoutePPREnabled) {
+                          if (cacheComponents) {
                             isSSG = true
                             isStatic = true
 
@@ -2129,7 +2112,6 @@ export default async function build(
                             ) {
                               staticPaths.set(originalAppPath, [])
                               isStatic = true
-                              isRoutePPREnabled = false
                             }
                           }
 
@@ -2267,7 +2249,6 @@ export default async function build(
                   totalSize,
                   isStatic,
                   isSSG,
-                  isRoutePPREnabled,
                   isHybridAmp,
                   ssgPageRoutes,
                   initialCacheControl: undefined,
@@ -2586,10 +2567,6 @@ export default async function build(
           invocationCount: config.experimental.nextScriptWorkers ? 1 : 0,
         },
         {
-          featureName: 'experimental/ppr',
-          invocationCount: config.experimental.ppr ? 1 : 0,
-        },
-        {
           featureName: 'turbopackPersistentCaching',
           invocationCount: isPersistentCachingEnabled(config) ? 1 : 0,
         },
@@ -2762,10 +2739,6 @@ export default async function build(
                 const appConfig = appDefaultConfigs.get(originalAppPath)
                 const isDynamicError = appConfig?.dynamic === 'error'
 
-                const isRoutePPREnabled: boolean = appConfig
-                  ? checkIsRoutePPREnabled(config.experimental.ppr, appConfig)
-                  : false
-
                 routes.forEach((route) => {
                   // If the route has any dynamic root segments, we need to skip
                   // rendering the route. This is because we don't support
@@ -2783,7 +2756,6 @@ export default async function build(
                     _fallbackRouteParams: route.fallbackRouteParams,
                     _isDynamicError: isDynamicError,
                     _isAppDir: true,
-                    _isRoutePPREnabled: isRoutePPREnabled,
                     _allowEmptyStaticShell: !route.throwOnEmptyStaticShell,
                   }
                 })
@@ -2939,14 +2911,6 @@ export default async function build(
 
             const isAppRouteHandler = isAppRouteRoute(originalAppPath)
 
-            // When this is an app page and PPR is enabled, the route supports
-            // partial pre-rendering.
-            const isRoutePPREnabled: true | undefined =
-              !isAppRouteHandler &&
-              checkIsRoutePPREnabled(config.experimental.ppr, appConfig)
-                ? true
-                : undefined
-
             const htmlBotsRegexString =
               // The htmlLimitedBots has been converted to a string during loadConfig
               config.htmlLimitedBots || HTML_LIMITED_BOT_UA_RE_STRING
@@ -2960,9 +2924,11 @@ export default async function build(
                 key: 'content-type',
                 value: 'multipart/form-data;.*',
               },
-              // If it's PPR rendered non-static page, bypass the PPR cache when streaming metadata is enabled.
-              // This will skip the postpone data for those bots requests and instead produce a dynamic render.
-              ...(isRoutePPREnabled
+              // If it's cache components rendered non-static page, bypass the
+              // cache components cache when streaming metadata is enabled. This
+              // will skip the postpone data for those bots requests and instead
+              // produce a dynamic render.
+              ...(cacheComponents && !isAppRouteHandler
                 ? [
                     {
                       type: 'header',
@@ -3021,7 +2987,7 @@ export default async function build(
               }
 
               if (
-                isRoutePPREnabled &&
+                cacheComponents &&
                 prerenderedRoute.fallbackRouteParams &&
                 prerenderedRoute.fallbackRouteParams.length > 0
               ) {
@@ -3078,10 +3044,10 @@ export default async function build(
 
                 let prefetchDataRoute: string | null | undefined
                 // While we may only write the `.rsc` when the route does not
-                // have PPR enabled, we still want to generate the route when
-                // deployed so it doesn't 404. If the app has PPR enabled, we
-                // should add this key.
-                if (!isAppRouteHandler && isAppPPREnabled) {
+                // have cache components enabled, we still want to generate the
+                // route when deployed so it doesn't 404. If the app has cache
+                // components enabled, we should add this key.
+                if (!isAppRouteHandler && cacheComponents) {
                   prefetchDataRoute = path.posix.join(
                     `${normalizedRoute}${RSC_PREFETCH_SUFFIX}`
                   )
@@ -3092,12 +3058,13 @@ export default async function build(
                 prerenderManifest.routes[route.pathname] = {
                   initialStatus: meta.status,
                   initialHeaders: meta.headers,
-                  renderingMode: isAppPPREnabled
-                    ? isRoutePPREnabled
+                  renderingMode: cacheComponents
+                    ? cacheComponents
                       ? RenderingMode.PARTIALLY_STATIC
                       : RenderingMode.STATIC
                     : undefined,
-                  experimentalPPR: isRoutePPREnabled,
+                  // If it's falsy, then exclude it from the manifest.
+                  experimentalPPR: cacheComponents || undefined,
                   experimentalBypassFor: bypassFor,
                   initialRevalidateSeconds: cacheControl.revalidate,
                   initialExpireSeconds: cacheControl.expire,
@@ -3119,10 +3086,10 @@ export default async function build(
             }
 
             if (!hasRevalidateZero && isDynamicRoute(page)) {
-              // When PPR fallbacks aren't used, we need to include it here. If
-              // they are enabled, then it'll already be included in the
-              // prerendered routes.
-              if (!isRoutePPREnabled) {
+              // When Cache Components fallbacks aren't used, we need to include
+              // it here. If they are enabled, then it'll already be included in
+              // the prerendered routes.
+              if (!cacheComponents) {
                 dynamicPrerenderedRoutes.push({
                   params: {},
                   pathname: page,
@@ -3154,7 +3121,7 @@ export default async function build(
                 let dynamicRoute = routesManifest.dynamicRoutes.find(
                   (r) => r.page === route.pathname
                 )
-                if (!isAppRouteHandler && isAppPPREnabled) {
+                if (!isAppRouteHandler && cacheComponents) {
                   prefetchDataRoute = path.posix.join(
                     `${normalizedRoute}${RSC_PREFETCH_SUFFIX}`
                   )
@@ -3201,9 +3168,9 @@ export default async function build(
                 pageInfos.set(route.pathname, {
                   ...(pageInfos.get(route.pathname) as PageInfo),
                   isDynamicAppRoute: true,
-                  // if PPR is turned on and the route contains a dynamic segment,
-                  // we assume it'll be partially prerendered
-                  hasPostponed: isRoutePPREnabled,
+                  // if cache components is turned on and the route contains a
+                  // dynamic segment, we assume it'll be partially prerendered
+                  hasPostponed: cacheComponents,
                 })
 
                 const fallbackMode = getFallbackMode(route)
@@ -3213,7 +3180,7 @@ export default async function build(
                 // found, mark that we should keep the shell forever
                 // (revalidate: `false` via `getCacheControl()`).
                 const fallbackCacheControl =
-                  isRoutePPREnabled && fallbackMode === FallbackMode.PRERENDER
+                  cacheComponents && fallbackMode === FallbackMode.PRERENDER
                     ? cacheControl
                     : undefined
 
@@ -3224,15 +3191,16 @@ export default async function build(
 
                 const meta =
                   metadata &&
-                  isRoutePPREnabled &&
+                  cacheComponents &&
                   fallbackMode === FallbackMode.PRERENDER
                     ? collectMeta(metadata)
                     : {}
 
                 prerenderManifest.dynamicRoutes[route.pathname] = {
-                  experimentalPPR: isRoutePPREnabled,
-                  renderingMode: isAppPPREnabled
-                    ? isRoutePPREnabled
+                  // If it's falsy, then exclude it from the manifest.
+                  experimentalPPR: cacheComponents || undefined,
+                  renderingMode: cacheComponents
+                    ? cacheComponents
                       ? RenderingMode.PARTIALLY_STATIC
                       : RenderingMode.STATIC
                     : undefined,
@@ -3623,8 +3591,9 @@ export default async function build(
               // If the segment paths aren't defined, we need to insert a
               // reverse routing rule so that there isn't any conflicts
               // with other dynamic routes for the prefetch segment
-              // routes. This is true for any route that is not PPR-enabled,
-              // including all routes defined by Pages Router.
+              // routes. This is true for any route that is not cache
+              // components enabled, including all routes defined by Pages
+              // Router.
 
               // We don't need to add the prefetch segment data routes if it was
               // added due to a page that was already generated. This would have
@@ -3889,6 +3858,7 @@ export default async function build(
           buildManifest,
           middlewareManifest,
           gzipSize: config.experimental.gzipSize,
+          cacheComponents: config.experimental.cacheComponents === true,
         })
       )
 
