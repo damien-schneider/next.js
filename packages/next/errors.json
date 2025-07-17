@@ -721,5 +721,7 @@
   "720": "A client prerender store should not be used for a route handler.",
   "721": "Render in Browser",
   "722": "Unable to match pathname to a dynamic route",
-  "723": "NAPI type conversion error in throwTurbopackInternalError"
+  "723": "NAPI type conversion error in throwTurbopackInternalError",
+  "724": "Claude AI error: %s",
+  "725": "No response from AI"
 }
