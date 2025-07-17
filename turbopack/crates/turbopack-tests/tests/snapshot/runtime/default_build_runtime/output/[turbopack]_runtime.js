@@ -498,6 +498,7 @@ function loadChunk(chunkData, source) {
 const loadedChunks = new Set();
 const unsupportedLoadChunk = Promise.resolve(undefined);
 const loadedChunk = Promise.resolve(undefined);
+// Holds either a rejected promise or `loadedChunk` for success
 const chunkCache = new Map();
 function clearChunkCache() {
     chunkCache.clear();
@@ -538,34 +539,22 @@ function loadChunkPath(chunkPath, source) {
         });
     }
 }
-async function loadChunkAsyncUncached(source, chunkPath) {
+function loadChunkUncached(chunkPath) {
+    // resolve to an absolute path to simplify `require` handling
     const resolved = path.resolve(RUNTIME_ROOT, chunkPath);
-    try {
-        // use await to ensure that evaluation happens in another microtask
-        // Because we are using a resolved absolute path require shouldn't waste time probing node_modules.
-        const exports = await require(resolved);
-        const chunkModules = exports;
-        for (const [moduleId, moduleFactory] of Object.entries(chunkModules)){
-            if (!moduleFactories[moduleId]) {
-                if (Array.isArray(moduleFactory)) {
-                    const [moduleFactoryFn, otherIds] = moduleFactory;
-                    moduleFactories[moduleId] = moduleFactoryFn;
-                    for (const otherModuleId of otherIds){
-                        moduleFactories[otherModuleId] = moduleFactoryFn;
-                    }
-                } else {
-                    moduleFactories[moduleId] = moduleFactory;
+    const chunkModules = require(resolved);
+    for (const [moduleId, moduleFactory] of Object.entries(chunkModules)){
+        if (!moduleFactories[moduleId]) {
+            if (Array.isArray(moduleFactory)) {
+                const [moduleFactoryFn, otherIds] = moduleFactory;
+                moduleFactories[moduleId] = moduleFactoryFn;
+                for (const otherModuleId of otherIds){
+                    moduleFactories[otherModuleId] = moduleFactoryFn;
                 }
+            } else {
+                moduleFactories[moduleId] = moduleFactory;
             }
         }
-    } catch (e) {
-        let errorMessage = `Failed to load chunk ${chunkPath}`;
-        if (source) {
-            errorMessage += ` from ${stringifySourceInfo(source)}`;
-        }
-        throw new Error(errorMessage, {
-            cause: e
-        });
     }
 }
 function loadChunkAsync(source, chunkData) {
@@ -577,14 +566,24 @@ function loadChunkAsync(source, chunkData) {
     }
     let entry = chunkCache.get(chunkPath);
     if (entry === undefined) {
-        const resolve = chunkCache.set.bind(chunkCache, chunkPath, null);
-        // A new Promise ensures callers that don't handle rejection will still trigger one unhandled rejection.
-        // Handling the rejection will not trigger unhandled rejections.
-        entry = loadChunkAsyncUncached(source, chunkPath).then(resolve);
+        try {
+            // Load the chunk synchronously
+            loadChunkUncached(chunkPath);
+            entry = loadedChunk;
+        } catch (e) {
+            let errorMessage = `Failed to load chunk ${chunkPath}`;
+            if (source) {
+                errorMessage += ` from ${stringifySourceInfo(source)}`;
+            }
+            // Cache the failure promise, future requests will also get this same rejection
+            entry = Promise.reject(new Error(errorMessage, {
+                cause: e
+            }));
+        }
         chunkCache.set(chunkPath, entry);
     }
     // TODO: Return an instrumented Promise that React can use instead of relying on referential equality.
-    return entry === null ? loadedChunk : entry;
+    return entry;
 }
 function loadChunkAsyncByUrl(source, chunkUrl) {
     const path1 = url.fileURLToPath(new URL(chunkUrl, RUNTIME_ROOT));
