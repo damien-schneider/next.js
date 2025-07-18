@@ -26,9 +26,9 @@ import {
 } from '../shared'
 import GearIcon from '../icons/gear-icon'
 import { UserPreferencesBody } from '../components/errors/dev-tools-indicator/dev-tools-info/user-preferences'
-import { useHideShortcutStorage } from '../components/errors/dev-tools-indicator/dev-tools-info/preferences'
 import { useShortcuts } from '../hooks/use-shortcuts'
 import { useUpdateAllPanelPositions } from '../components/devtools-indicator/devtools-indicator'
+import { saveDevToolsConfig } from '../utils/save-devtools-config'
 
 const MenuPanel = () => {
   const { setPanel, setSelectedIndex } = usePanelRouterContext()
@@ -138,11 +138,11 @@ export const PanelRouter = () => {
   const { triggerRef } = usePanelRouterContext()
   const toggleDevtools = useToggleDevtoolsVisibility()
 
-  const [hideShortcut, setHideShortcut] = useHideShortcutStorage()
   useShortcuts(
-    hideShortcut ? { [hideShortcut]: toggleDevtools } : {},
+    state.hideShortcut ? { [state.hideShortcut]: toggleDevtools } : {},
     triggerRef
   )
+
   return (
     <>
       <PanelRoute name="panel-selector">
@@ -160,10 +160,7 @@ export const PanelRouter = () => {
           closeOnClickOutside
           header={<DevToolsHeader title="Preferences" />}
         >
-          <UserPreferencesWrapper
-            hideShortcut={hideShortcut}
-            setHideShortcut={setHideShortcut}
-          />
+          <UserPreferencesWrapper />
         </DynamicPanel>
       </PanelRoute>
 
@@ -275,13 +272,7 @@ const InfoFooter = ({ href }: { href: string }) => {
   )
 }
 
-const UserPreferencesWrapper = ({
-  hideShortcut,
-  setHideShortcut,
-}: {
-  hideShortcut: string | null
-  setHideShortcut: (value: string | null) => void
-}) => {
+const UserPreferencesWrapper = () => {
   const { dispatch, state } = useDevOverlayContext()
   const { setPanel, setSelectedIndex } = usePanelRouterContext()
   const updateAllPanelPositions = useUpdateAllPanelPositions()
@@ -294,6 +285,7 @@ const UserPreferencesWrapper = ({
       }}
     >
       <UserPreferencesBody
+        theme={state.theme}
         position={state.devToolsPosition}
         scale={state.scale}
         setScale={(scale) => {
@@ -309,8 +301,10 @@ const UserPreferencesWrapper = ({
           })
           updateAllPanelPositions(devToolsPosition)
         }}
-        hideShortcut={hideShortcut}
-        setHideShortcut={setHideShortcut}
+        hideShortcut={state.hideShortcut}
+        setHideShortcut={(value) => {
+          saveDevToolsConfig({ hideShortcut: value })
+        }}
         hide={() => {
           dispatch({
             type: ACTION_DEV_INDICATOR_SET,
